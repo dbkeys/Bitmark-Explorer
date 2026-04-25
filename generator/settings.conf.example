@@ -1,0 +1,59 @@
+# Bitmark Homepage Generator — runtime configuration
+# Sourced by install.sh and the tmux wrapper script.
+# All variables here are exported as environment variables available to the binary.
+
+# ── explorer identity ─────────────────────────────────────────────────────────
+
+# DNS hostname for this explorer instance.
+# install.sh will prompt for this interactively if it is left blank.
+# All /var/www/* paths below are derived from this value.
+EXPLORER_DOMAIN=your-explorer-domain.example.com
+
+# ── paths ─────────────────────────────────────────────────────────────────────
+
+# HTML template used to render the homepage
+TEMPLATE_PATH=/var/www/templates/bitmark-hp-gen/homepage.html
+
+# HTML template used to render block detail pages
+BLOCK_TEMPLATE_PATH=/var/www/templates/bitmark-hp-gen/blockdetail.html
+
+# HTML template used to render address detail pages
+ADDR_TEMPLATE_PATH=/var/www/templates/bitmark-hp-gen/addressdetail.html
+
+# HTML template used to render the multi-tx blocks page
+MULTITX_TEMPLATE_PATH=/var/www/templates/bitmark-hp-gen/multitx.html
+
+# Output HTML file written on each block
+OUTPUT_PATH=/var/www/${EXPLORER_DOMAIN}/html/index.html
+
+# Output directory (created and chown-ed by install.sh)
+OUTPUT_DIR=/var/www/${EXPLORER_DOMAIN}/html
+
+# ── HTTP server ───────────────────────────────────────────────────────────────
+
+# Address the built-in HTTP server listens on (Apache proxies to this)
+LISTEN_ADDR=127.0.0.1:8088
+
+# Directory from which static files are served (images, etc.)
+STATIC_DIR=/var/www/${EXPLORER_DOMAIN}/html
+
+# ── ZMQ ───────────────────────────────────────────────────────────────────────
+
+# ZMQ endpoint of the block publisher (bitmarkd / bitcoind)
+ZMQ_ENDPOINT=tcp://127.0.0.1:28332
+
+# Seconds of publisher silence before the connection is considered dead
+ZMQ_RECV_TIMEOUT=120
+
+# Seconds to wait before reconnecting after a timeout
+ZMQ_RECONNECT_DELAY=5
+
+# ── tmux ──────────────────────────────────────────────────────────────────────
+
+# Named tmux session that hosts the ncurses TUI
+TMUX_SESSION=bitmark-explorer
+
+# Window dimensions — large values allow the ncurses TUI to fill any terminal;
+# tmux resizes down to the attached client automatically (window-size latest).
+TMUX_COLS=500
+TMUX_ROWS=200

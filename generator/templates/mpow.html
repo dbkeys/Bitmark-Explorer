@@ -1,0 +1,65 @@
+<h2>mPoW Algorithm Statistics as of {{ .GeneratedAt.Format "2006-01-02 15:04:05" }} UTC</h2>
+
+<table class="table table-dark table-striped table-hover fs-6 table-sm">
+<thead>
+<tr>
+<th></th>
+{{ range .Algos }}
+<th>{{ .AlgoName }}</th>
+{{ end }}
+</tr>
+</thead>
+
+<tbody>
+
+<tr>
+<th>Difficulty</th>
+{{ range .Algos }}
+<td>{{ printf "%.0f" .Difficulty }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>Hashrate (Gh/s)</th>
+{{ range .Algos }}
+<td>{{ printf "%.2f" .Hashrate }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>Peak Hashrate (Gh/s)</th>
+{{ range .Algos }}
+<td>{{ printf "%.2f" .PeakHashrate }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>Money Supply (BTM)</th>
+{{ range .Algos }}
+<td>{{ printf "%.0f" (div .MoneySupply 100000000) }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>Block Reward (BTM)</th>
+{{ range .Algos }}
+<td>{{ printf "%.2f" .BlockReward }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>nBlocks until SSF Update</th>
+{{ range .Algos }}
+<td>{{ .NSSFRemaining }}</td>
+{{ end }}
+</tr>
+
+<tr>
+<th>Block Spacing (minutes)</th>
+{{ range .Algos }}
+<td>{{ printf "%.2f" .BlockSpacing }}</td>
+{{ end }}
+</tr>
+
+</tbody>
+</table>

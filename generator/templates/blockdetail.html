@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Block {{ .Height }} &middot; Bitmark Block Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Varela" rel="stylesheet">
+    <style>
+        body {
+            background-color: #330066;
+            color: #f6f6f6;
+            font-family: 'Varela', sans-serif;
+            font-size: 17px;
+        }
+        a {
+            color: #f6f6f6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .logo {
+            width: 96px;
+            height: 96px;
+        }
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .header-container {
+            padding: 20px;
+            background: linear-gradient(160deg, rgba(210,180,222,1) 0%, rgba(51,0,102,1) 27%);
+        }
+        .footer-container {
+            padding: 20px;
+            background: linear-gradient(50deg, rgba(50,53,57,1) 0%, rgba(51,0,102,1) 27%);
+        }
+        .detail-label {
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .hash-val {
+            font-family: monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+        .auxpowsign {
+            color: #ffdd57;
+        }
+        .nav-block a {
+            color: #f6f6f6;
+        }
+        th {
+            background-color: #1f3a6b;
+        }
+        .table tbody tr:hover {
+            background-color: #303030;
+        }
+        @media (max-width: 768px) {
+            .title { font-size: 24px; }
+            .logo  { margin-bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ── Header ── -->
+    <div class="container-fluid header-container">
+        <div class="row align-items-center">
+            <div class="col-md-5 col-sm-12 d-flex align-items-center mb-3 mb-md-0">
+                <a href="/" class="d-flex align-items-center text-decoration-none text-light">
+                    <img src="/bitmark128.png" alt="Bitmark Logo" class="logo me-3">
+                    <div class="title">Bitmark Block Explorer</div>
+                </a>
+            </div>
+            <div class="col-md-2 d-none d-md-block"></div>
+            <div class="col-md-5 col-sm-12">
+                <form action="/" method="get" class="d-flex">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control"
+                               placeholder="Search by block hash or transaction ID">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+
+        <!-- ── Block navigation ── -->
+        <div class="d-flex justify-content-between align-items-center mb-3 nav-block">
+            <div>
+                {{ if .PrevHash }}<a href="/?q={{ deref .PrevHash }}">&larr; Block {{ dec .Height }}</a>{{ end }}
+            </div>
+            <div class="text-center">
+                <span class="fw-bold">Block {{ fmtInt .Height }}</span>
+            </div>
+            <div>
+                {{ if .NextHash }}<a href="/?q={{ deref .NextHash }}">Block {{ inc .Height }} &rarr;</a>{{ end }}
+            </div>
+        </div>
+
+        <!-- ── Block header detail table ── -->
+        <div class="table-responsive mb-4">
+            <table class="table table-dark table-sm">
+                <tbody>
+                    <tr>
+                        <th class="detail-label" style="width:18%">Height</th>
+                        <td>{{ fmtInt .Height }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Hash</th>
+                        <td class="hash-val">{{ .Hash }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Confirmations</th>
+                        <td>{{ .Confirmations }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Size</th>
+                        <td>{{ if .SizeBytes }}{{ derefInt .SizeBytes }} bytes{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Weight</th>
+                        <td>{{ if .Weight }}{{ derefInt .Weight }}{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Version</th>
+                        <td>{{ .Version }}{{ if .CoreVersion }} (Core {{ deref .CoreVersion }}){{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Algo</th>
+                        <td>{{ if .AlgoName }}{{ deref .AlgoName }}{{ else }}UNKNOWN{{ end }}{{ if .AlgoID }} (id={{ derefInt .AlgoID }}){{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Auxpow</th>
+                        <td>{{ .Auxpow }}{{ if .AuxpowSign }} <span class="auxpowsign">({{ deref .AuxpowSign }})</span>{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Merkle Root</th>
+                        <td class="hash-val">{{ if .MerkleRoot }}{{ deref .MerkleRoot }}{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Time</th>
+                        <td>{{ .TimeUnix }} ({{ .TimeUTC.Format "2006-Jan-02 15:04:05" }} UTC)</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Nonce</th>
+                        <td>{{ .Nonce }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Bits</th>
+                        <td>{{ if .Bits }}{{ deref .Bits }}{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Difficulty</th>
+                        <td>{{ printf "%.8f" .Difficulty }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Chainwork</th>
+                        <td class="hash-val">{{ if .Chainwork }}{{ deref .Chainwork }}{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Prev Hash</th>
+                        <td class="hash-val">{{ if .PrevHash }}<a href="/?q={{ deref .PrevHash }}">{{ deref .PrevHash }}</a>{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Next Hash</th>
+                        <td class="hash-val">{{ if .NextHash }}<a href="/?q={{ deref .NextHash }}">{{ deref .NextHash }}</a>{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Tx Count</th>
+                        <td>{{ .TxCount }}</td>
+                    </tr>
+                    <tr>
+                        <th class="detail-label">Total Out</th>
+                        <td>{{ printf "%.8f" .TotalOutBTM }} BTM</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── Transactions ── -->
+        {{ range .Txs }}
+        <div class="mb-4">
+            <div class="fw-bold mb-1 hash-val">
+                {{ if .IsCoinbase }}<span class="badge bg-warning text-dark me-1">coinbase</span>{{ end }}
+                {{ .Txid }}
+                <small class="text-muted ms-2">{{ printf "%.8f" .TotalOutBTM }} BTM</small>
+            </div>
+
+            <div class="row g-2">
+                <!-- Inputs -->
+                <div class="col-md-6">
+                    <table class="table table-dark table-sm table-striped fs-6">
+                        <thead><tr><th colspan="2">Inputs</th></tr></thead>
+                        <tbody>
+                        {{ range .Inputs }}
+                        <tr>
+                            {{ if .IsCoinbase }}
+                            <td colspan="2" class="text-warning">
+                                coinbase{{ if .CoinbaseHex }}: <span class="hash-val">{{ deref .CoinbaseHex }}</span>{{ end }}
+                            </td>
+                            {{ else }}
+                            <td class="hash-val">
+                                {{ if .PrevTxid }}<a href="/?q={{ deref .PrevTxid }}">{{ slice8 .PrevTxid }}&#8230;</a>{{ if .PrevVout }}:{{ derefInt .PrevVout }}{{ end }}{{ end }}
+                                {{ if .PrevAddr }}<br><small><a href="/?q={{ deref .PrevAddr }}">{{ deref .PrevAddr }}</a></small>{{ end }}
+                            </td>
+                            <td class="text-end">{{ printf "%.8f" .PrevValBTM }}</td>
+                            {{ end }}
+                        </tr>
+                        {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Outputs -->
+                <div class="col-md-6">
+                    <table class="table table-dark table-sm table-striped fs-6">
+                        <thead><tr><th>Address</th><th class="text-end">BTM</th></tr></thead>
+                        <tbody>
+                        {{ range .Outputs }}
+                        <tr>
+                            <td>
+                                {{ if .Address }}<a href="/?q={{ deref .Address }}">{{ deref .Address }}</a>{{ else }}<span class="text-muted">{{ if .ScriptType }}{{ deref .ScriptType }}{{ else }}nonstandard{{ end }}</span>{{ end }}
+                            </td>
+                            <td class="text-end">{{ printf "%.8f" .ValBTM }}</td>
+                        </tr>
+                        {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {{ end }}
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <footer class="container-fluid footer-container mt-4"></footer>
+</body>
+</html>

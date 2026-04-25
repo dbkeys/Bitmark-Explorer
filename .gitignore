@@ -1,0 +1,20 @@
+# ── Credentials ───────────────────────────────────────────────────────────────
+credentials.env
+
+# ── Compiled binaries ─────────────────────────────────────────────────────────
+/indexer/bitmark-indexer
+/indexer/backfill-addresses
+/generator/bitmark-hp-gen
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+
+# ── Go build artifacts ────────────────────────────────────────────────────────
+/indexer/bin/
+/generator/bin/
+/indexer/internal/temp/
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/

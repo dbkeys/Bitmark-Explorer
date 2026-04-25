@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow, nocache" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bitmark Block Explorer &middot; RPC Ace</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Varela" rel="stylesheet">
+    <style>
+        body {
+            background-color: #330066;
+            color: #f6f6f6;
+            font-family: 'Varela', sans-serif;
+            font-size: 17px;
+        }
+        a {
+            color: #f6f6f6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .logo {
+            width: 96px;
+            height: 96px;
+        }
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .header-container {
+            padding: 20px;
+            background: linear-gradient(160deg, rgba(210,180,222,1) 0%, rgba(51,0,102,1) 27%);
+        }
+        .footer-container {
+            padding: 20px;
+            background: linear-gradient(50deg, rgba(50,53,57,1) 0%, rgba(51,0,102,1) 27%);
+        }
+        .table thead th {
+            background-color: #1f3a6b;
+        }
+        .table tbody tr:hover {
+            background-color: #303030;
+        }
+        .auxpowsign {
+            color: #ffdd57;
+        }
+        @media (max-width: 768px) {
+            .title {
+                font-size: 24px;
+            }
+            .logo {
+                margin-bottom: 10px;
+            }
+            .fs-6 {
+                font-size: 0.875rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ── Header ── -->
+    <div class="container-fluid header-container">
+        <div class="row align-items-center">
+            <!-- Logo + Title -->
+            <div class="col-md-5 col-sm-12 d-flex align-items-center mb-3 mb-md-0">
+                <a href="/" class="d-flex align-items-center text-decoration-none text-light">
+                    <img src="bitmark128.png" alt="Bitmark Logo" class="logo me-3">
+                    <div class="title">Bitmark Block Explorer</div>
+                </a>
+            </div>
+            <!-- Spacer -->
+            <div class="col-md-2 d-none d-md-block"></div>
+            <!-- Search -->
+            <div class="col-md-5 col-sm-12">
+                <form action="/" method="get" class="d-flex">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control"
+                               placeholder="Search by block height, hash, tx ID or address">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+
+        <!-- ── Info rows ── -->
+        <div class="mb-4">
+            <div class="row g-0 align-items-center mb-2">
+                <div class="col-md-4 col-sm-12">
+                    <span>Blocks: <a href="?q={{ .GlobalStats.NumBlocks }}">{{ fmtInt .GlobalStats.NumBlocks }}</a></span>
+                </div>
+                <div class="col-md-4 d-none d-md-block"></div>
+                <div class="col-md-4 col-sm-12 text-md-end">
+                    <span>Money Supply: {{ fmtF2 .GlobalStats.MoneySupply }} BTM</span>
+                </div>
+            </div>
+            <div class="row g-0 align-items-center">
+                <div class="col-md-6 col-sm-12">
+                    <span>Average Block Spacing: {{ printf "%.2f" .GlobalStats.BlockSpacing }} minutes</span>
+                </div>
+                <div class="col-md-6 col-sm-12 text-md-end">
+                    <span>Plots:
+                        <a href="/plots/latest.DAY/index.php">Day</a> |
+                        <a href="/plots/latest.MONTH/index.php">Month</a> |
+                        <a href="/plots/latest.YEAR/index.php">Year</a> |
+                        <a href="/plots/latest.FULL/index.php">Full</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── 8-Algorithm Stats Table ── -->
+        {{ if .AlgoStats }}
+        <div class="table-responsive mb-4">
+            <table class="table table-dark table-striped table-hover fs-6 table-sm">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th colspan="{{ len .AlgoStats }}" style="background-color: #007bff; color: white; text-align: center; font-weight: bold; padding: 4px; border-radius: 8px;">
+                            <a href="mining-guide.html" target="_blank" rel="noopener noreferrer">8 Mining Algorithms</a>
+                        </th>
+                    </tr>
+                    <tr>
+                        <th></th>
+                        {{ range .AlgoStats }}{{ $url := poolURL .AlgoName }}
+                        <th>{{ if $url }}<a href="{{ $url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ .AlgoName }}</a>{{ else }}{{ .AlgoName }}{{ end }}</th>
+                        {{ end }}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>Difficulty</th>
+                        {{ range .AlgoStats }}<td>{{ fmtF0 .Difficulty }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>Hashrate (Gh/s)</th>
+                        {{ range .AlgoStats }}<td>{{ fmtF0 .Hashrate }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>Peak Hashrate (Gh/s)</th>
+                        {{ range .AlgoStats }}<td>{{ fmtF0 .PeakHashrate }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>Money Supply (BTM)</th>
+                        {{ range .AlgoStats }}<td>{{ fmtBTM .MoneySupplyBTM }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>Block Reward (BTM)</th>
+                        {{ range .AlgoStats }}<td>{{ printf "%.2f" .BlockReward }}/{{ printf "%.2f" .NominalBlockReward }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>nBlocks SSF Update</th>
+                        {{ range .AlgoStats }}<td>{{ .NSSFRemaining }}</td>{{ end }}
+                    </tr>
+                    <tr>
+                        <th>Block Spacing (min)</th>
+                        {{ range .AlgoStats }}<td>{{ printf "%.2f" .BlockSpacing }}</td>{{ end }}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {{ end }}
+
+        <!-- ── Latest Blocks Table ── -->
+        <div class="d-flex align-items-center mb-2">
+            <span class="me-3">Latest Blocks</span>
+            <div class="form-check form-check-inline mb-0">
+                <input class="form-check-input" type="checkbox" id="filterMultiTx">
+                <label class="form-check-label" for="filterMultiTx">
+                    <a href="/?view=multitx" id="multitxLink" style="color:inherit">tx# &gt; 1</a>
+                </label>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover fs-6 table-sm" id="blocksTable">
+                <thead>
+                    <tr>
+                        <th>Block</th>
+                        <th>Hash</th>
+                        <th>Difficulty</th>
+                        <th>Time (UTC)</th>
+                        <th>Tx# &amp; Value Out</th>
+                        <th>Algo</th>
+                        <th>Version</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Blocks }}
+                    <tr data-txcount="{{ .TxCount }}">
+                        <td>{{ .Height }}</td>
+                        <td><a href="?q={{ .Hash }}">{{ slice .Hash 0 16 }}&#8230;</a></td>
+                        <td>{{ printf "%.2f" .Difficulty }}</td>
+                        <td>{{ .TimeUTC.Format "2006-Jan-02 15:04:05" }}</td>
+                        <td>{{ .TxCount }} &middot; {{ printf "%.2f" .TotalOutBTM }}</td>
+                        <td>{{ if .AlgoName }}{{ .AlgoName }}{{ else }}UNKNOWN{{ end }}<span class="auxpowsign">{{ if .Auxpow }}*{{ end }}</span></td>
+                        <td>{{ if .CoreVersion }}{{ .CoreVersion }}{{ else }}{{ .Version }}{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+            <p>* Merge mined</p>
+            <p>Difficulties and hashrates are weighted according to the algo's weight.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Generated {{ .GeneratedAt.Format "2006-Jan-02 15:04:05" }} UTC</p>
+        </div>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('filterMultiTx').addEventListener('change', function() {
+            if (this.checked) {
+                window.location.href = '/?view=multitx';
+            }
+        });
+    </script>
+    <script>
+        (function () {
+            if (!window.EventSource) return; // SSE not supported — silent fallback
+
+            // sessionStorage is tab-scoped: survives reloads of this tab,
+            // but each new tab starts fresh — exactly what we want.
+            var tabId = sessionStorage.getItem('tabId');
+            if (!tabId) {
+                tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+                sessionStorage.setItem('tabId', tabId);
+            }
+
+            var src = new EventSource('/events?tab=' + encodeURIComponent(tabId));
+
+            src.addEventListener('newblock', function () {
+                window.location.reload();
+            });
+
+            src.onerror = function () {
+                // EventSource reconnects automatically; nothing to do here.
+            };
+        })();
+    </script>
+    <footer class="container-fluid footer-container mt-4"></footer>
+</body>
+</html>

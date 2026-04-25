@@ -1,0 +1,29 @@
+# bitmark-indexer settings
+# Values here are used as defaults; environment variables always override.
+
+# PostgreSQL connection string (required)
+PG_DSN=postgres://user:password@127.0.0.1:5432/bitmark?sslmode=disable
+
+# Bitmark/Bitcoin daemon RPC endpoint (required)
+RPC_URL=http://127.0.0.1:9266
+RPC_USER=
+RPC_PASS=
+RPC_TIMEOUT=15s
+RPC_INSECURE_TLS=false
+# Maximum response body size in bytes (80 MB)
+RPC_MAX_RESPONSE_BYTES=83886080
+
+# ZMQ hashblock publisher endpoint — empty string disables real-time mode
+ZMQ_ENDPOINT=tcp://127.0.0.1:28332
+
+# Number of confirmations required before ingesting a block (0 = ingest at tip)
+CONFIRMATIONS=0
+
+# Blocks per database transaction commit
+BATCH_SIZE=500
+
+# RPC polling interval when ZMQ is unavailable
+POLL_INTERVAL=2s
+
+# Enable verbose logging
+VERBOSE=false
