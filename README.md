@@ -63,11 +63,12 @@ Debian's packaged Go is often too old. Install the upstream release:
 
 ```bash
 GO_VERSION=1.25.0
-curl -OL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
-tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
+ARCH=$(dpkg --print-architecture)   # amd64 or arm64
+curl -OL https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz
+tar -C /usr/local -xzf go${GO_VERSION}.linux-${ARCH}.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile.d/go.sh
 source /etc/profile.d/go.sh
-go version   # should print go1.25.0 linux/amd64
+go version   # should print go1.25.0 linux/amd64 or go1.25.0 linux/arm64
 ```
 
 ---
@@ -81,9 +82,9 @@ The indexer requires **bitmarkd v27** built with ZMQ support (`--with-zmq`).
 apt-get install -y libdb5.3++-dev libminiupnpc-dev libnatpmp-dev
 
 # Clone and build (adjust tag/branch as needed)
-git clone https://github.com/bitmark-inc/bitmark.git /usr/local/src/bitmark.cc
-cd /usr/local/src/bitmark.cc
-git checkout v27.0   # use the latest stable v27.x tag
+git clone https://github.com/bitmarkcc/bitmark /usr/local/src/bitmark
+cd /usr/local/src/bitmark
+git checkout remotes/origin/27.xb
 ./autogen.sh
 ./configure --with-zmq --without-gui --disable-wallet
 make -j$(nproc)
