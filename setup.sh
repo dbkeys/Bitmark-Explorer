@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # setup.sh — full Bitmark Explorer suite installer
 #
-# Installs and configures all components in the correct order:
+# Covers README Steps 3–6 (PostgreSQL, indexer, generator, Apache).
+# Complete README Steps 0–2 first:
+#   0. System packages     (apt-get install ...)
+#   1. Go 1.25.0           (download from go.dev)
+#   2. Bitmark node        (build & start bitmarkd, wait for full sync)
+#
+# This script then runs, in order:
 #   1. PostgreSQL schema     (database/verify-schema.sh)
-#   2. Blockchain indexer    (indexer/setup-env.sh)
+#   2. Blockchain indexer    (build binaries + indexer/setup-env.sh)
 #   3. Homepage generator    (generator/install.sh)
 #   4. Apache virtual host
 #
@@ -11,11 +17,11 @@
 # Safe to re-run: answers are saved to credentials.env so subsequent
 # runs require no user input.
 #
-# Prerequisites:
-#   - bitmarkd fully synced
+# Prerequisites (checked at start):
+#   - Go 1.25.0 installed at /usr/local/go/bin/go
+#   - gcc and pkg-config present (CGo required for ZMQ/ncurses bindings)
 #   - PostgreSQL installed and running
-#   - Apache2 installed
-#   - Go 1.21+ installed
+#   - bitmarkd fully synced and listening on RPC port
 #   - This repository cloned to a local directory
 
 set -euo pipefail
@@ -41,6 +47,47 @@ check_dirs() {
     [[ -d "${PSQL_DIR}" ]]    || die "database/ not found at ${PSQL_DIR}"
     [[ -d "${INDEXER_DIR}" ]] || die "indexer/ not found at ${INDEXER_DIR}"
     [[ -d "${HPGEN_DIR}" ]]   || die "generator/ not found at ${HPGEN_DIR}"
+}
+
+check_prereqs() {
+    local ok=true
+
+    # Go — must be at the path used by the Makefiles and README
+    local go_bin="/usr/local/go/bin/go"
+    if [[ ! -x "$go_bin" ]]; then
+        warn "Go not found at $go_bin"
+        warn "Install it first — see README Step 1."
+        ok=false
+    else
+        local go_ver
+        go_ver="$("$go_bin" version 2>/dev/null | awk '{print $3}')"
+        info "Go: $go_ver"
+    fi
+
+    # CGo build tools (ZMQ and ncurses bindings require them)
+    for tool in gcc pkg-config; do
+        if ! command -v "$tool" &>/dev/null; then
+            warn "Missing build tool: $tool  (apt-get install -y build-essential pkg-config)"
+            ok=false
+        fi
+    done
+
+    # PostgreSQL
+    if ! systemctl is-active --quiet postgresql 2>/dev/null; then
+        warn "PostgreSQL is not running.  Start it with: systemctl start postgresql"
+        ok=false
+    else
+        info "PostgreSQL: running"
+    fi
+
+    # Apache2
+    if ! command -v apache2ctl &>/dev/null; then
+        warn "apache2 not installed.  The vhost step will be skipped."
+        warn "Install with: apt-get install -y apache2"
+        # Not fatal — setup_apache() handles the missing binary gracefully.
+    fi
+
+    [[ "$ok" == true ]] || die "One or more prerequisites are missing — see warnings above."
 }
 
 # ── credential prompts ────────────────────────────────────────────────────────
@@ -160,7 +207,25 @@ setup_schema() {
 
 # ── step 2: blockchain indexer ────────────────────────────────────────────────
 setup_indexer() {
-    step "2/4" "Blockchain indexer"
+    step "2/4" "Blockchain indexer  (building Go binaries — may take a minute)"
+
+    local go_bin="/usr/local/go/bin/go"
+
+    info "Building bitmark-indexer..."
+    (cd "${INDEXER_DIR}" && CGO_ENABLED=1 "$go_bin" build -o bitmark-indexer    ./cmd/bitmark-indexer)    \
+        || die "Failed to build bitmark-indexer"
+
+    info "Building backfill-addresses..."
+    (cd "${INDEXER_DIR}" && CGO_ENABLED=1 "$go_bin" build -o backfill-addresses ./cmd/backfill-addresses) \
+        || die "Failed to build backfill-addresses"
+
+    # mv (atomic rename) instead of cp — avoids ETXTBSY when the service is
+    # already running, because rename() replaces the directory entry without
+    # touching the inode the running process holds open.
+    mv "${INDEXER_DIR}/bitmark-indexer"    /usr/local/bin/bitmark-indexer
+    mv "${INDEXER_DIR}/backfill-addresses" /usr/local/bin/backfill-addresses
+    info "Installed /usr/local/bin/bitmark-indexer and /usr/local/bin/backfill-addresses"
+
     bash "${INDEXER_DIR}/setup-env.sh"
 }
 
@@ -232,6 +297,7 @@ VHOST
 main() {
     require_root
     check_dirs
+    check_prereqs
 
     echo
     echo "=================================================="
@@ -261,6 +327,10 @@ main() {
     echo "  Service logs:"
     echo "    journalctl -u bitmark-indexer -f"
     echo "    journalctl -u bitmark-hp-gen  -f"
+    echo
+    echo "  One-time address backfill (run after indexer reaches chain tip):"
+    echo "    PG_DSN=\"\$(grep PG_DSN /etc/bitmark-indexer.env | cut -d= -f2-)\" \\"
+    echo "      /usr/local/bin/backfill-addresses"
     echo
 }
 

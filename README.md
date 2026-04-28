@@ -23,12 +23,12 @@ bitmarkd ──RPC:9266──► bitmark-indexer ──► PostgreSQL :5432
 
 ```bash
 # Clone and run the one-shot installer (as root):
-git clone https://github.com/your-org/Bitmark-Explorer.git /usr/local/src/Bitmark-Explorer
+git clone https://github.com/dbkeys/Bitmark-Explorer.git /usr/local/src/Bitmark-Explorer
 cd /usr/local/src/Bitmark-Explorer
 sudo bash setup.sh
 ```
 
-`setup.sh` prompts for your domain, RPC credentials, and database password, then runs all four steps in order. It is safe to re-run — answers are saved to `credentials.env` so subsequent runs require no user input.
+`setup.sh` covers **Steps 3–6** of the manual guide (PostgreSQL schema, indexer build and configuration, page generator, Apache vhost). **Complete Steps 0–2 first** (system packages, Go 1.25.0, and a fully-synced bitmarkd). Once those prerequisites are in place, `setup.sh` prompts for your domain, RPC credentials, and database password, builds both Go binaries, and configures all services. It is safe to re-run — answers are saved to `credentials.env` so subsequent runs require no user input.
 
 ---
 
@@ -57,7 +57,7 @@ useradd -m -s /bin/bash coins
 
 ---
 
-### Step 1 — Install Go 1.21+
+### Step 1 — Install Go 1.25.0
 
 Debian's packaged Go is often too old. Install the upstream release:
 
@@ -97,8 +97,6 @@ make install   # installs bitmarkd, bitmark-cli, etc. into /usr/local/bin
 install -d -o coins -g coins -m 750 /home/coins/.bitmark
 
 cat > /home/coins/.bitmark/bitmark.conf <<'EOF'
-server=1
-daemon=0
 rpcuser=bitmarkrpc
 rpcpassword=CHANGE_THIS_STRONG_RPC_PASSWORD
 rpcallowip=127.0.0.1
@@ -112,6 +110,8 @@ chown -R coins:coins /home/coins/.bitmark
 ```
 
 > **Ports**: Bitmark RPC is **9266** (P2P is **9265**) — distinct from Bitcoin's 8332/8333.
+>
+> **Important**: `rpcpassword` in `bitmark.conf` must match `RPC_PASS` in `credentials.env`. When you later run `indexer/setup-env.sh` it will sync the password into `bitmark.conf` automatically, so the two files can never diverge.
 
 #### Create a systemd service for bitmarkd
 
@@ -148,6 +148,22 @@ watch -n 10 'bitmark-cli -rpcuser=bitmarkrpc \
 
 > **Important**: let the node fully sync before starting the indexer. Initial sync can take several hours to days depending on your hardware.
 
+#### Peer bootstrapping
+
+DNS seeds are used automatically, but on a fresh install the node may spend several minutes working through stale peer candidates before establishing connections. To connect immediately, add `addnode` entries for known-good peers (use IPs returned by `dig <any-dns-seed>`):
+
+```bash
+# Append to /home/coins/.bitmark/bitmark.conf, then restart bitmarkd:
+addnode=188.245.73.236:9265
+addnode=46.105.78.216:9265
+```
+
+Alternatively, inject peers at runtime without restarting:
+```bash
+bitmark-cli -rpcuser=bitmarkrpc -rpcpassword=... -rpcport=9266 \
+  addnode "188.245.73.236:9265" add
+```
+
 ---
 
 ### Step 3 — Set up PostgreSQL
@@ -160,13 +176,13 @@ systemctl enable --now postgresql
 
 #### Create the database role and schema
 
-The recommended approach is the idempotent script in `database/`:
+The recommended approach is the idempotent script in `database/`. If you are running `setup.sh`, it generates `credentials.env` automatically from interactive prompts — skip the copy/edit step below. For a fully manual install:
 
 ```bash
 # Copy and fill in credentials (see credentials.env.example):
 cp credentials.env.example credentials.env
 chmod 600 credentials.env
-$EDITOR credentials.env   # set PGSU_PASS and DB_PASS at minimum
+$EDITOR credentials.env   # set PGSU_PASS, DB_PASS, RPC_USER, RPC_PASS at minimum
 
 # Run the schema script (creates role, database, all tables):
 sudo bash database/verify-schema.sh
@@ -367,10 +383,11 @@ cp bitmark-hp-gen /usr/local/bin/
 mkdir -p /var/www/templates/bitmark-hp-gen
 cp templates/*.html /var/www/templates/bitmark-hp-gen/
 
-mkdir -p /var/www/explorer.yourdomain.com/html
+EXPLORER_DOMAIN=explorer.yourdomain.com   # set to your actual domain
+mkdir -p /var/www/${EXPLORER_DOMAIN}/html
 cp templates/*.png templates/*.svg templates/*.ico \
    templates/*.css templates/*.js \
-   /var/www/explorer.yourdomain.com/html/ 2>/dev/null || true
+   /var/www/${EXPLORER_DOMAIN}/html/ 2>/dev/null || true
 ```
 
 #### Generator configuration reference

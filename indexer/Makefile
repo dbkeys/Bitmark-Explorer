@@ -12,11 +12,10 @@ export GOCACHE    ?= /root/.cache/go-build
 build:
 	CGO_ENABLED=1 $(GO) build -o $(BINARY) $(CMD)
 
-## install: build and swap the running binary (stops → copies → starts)
+## install: build, atomically swap the binary, then restart the service
 install: build
-	systemctl stop  $(BINARY)
-	cp $(BINARY) /usr/local/bin/$(BINARY)
-	systemctl start $(BINARY)
+	mv $(BINARY) /usr/local/bin/$(BINARY)
+	systemctl restart $(BINARY)
 	@sleep 2 && systemctl is-active $(BINARY)
 
 ## restart: restart the systemd service without rebuilding

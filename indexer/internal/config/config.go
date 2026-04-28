@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ type RPCConfig struct {
 	URL             string
 	User            string
 	Pass            string
+	CookieFile      string // path to bitmarkd .cookie file; used when RPC_PASS is unset
 	Timeout         time.Duration
 	InsecureTLS     bool
 	MaxResponseSize int64
@@ -77,11 +79,30 @@ func build(get func(k, def string) string) (Config, error) {
 		},
 	}
 
+	// Resolve cookie-file auth when RPC_PASS is absent.
+	// Explicit RPC_COOKIE_FILE wins; otherwise probe the standard location
+	// relative to $HOME (works when running as the node's OS user).
+	cookieFile := get("RPC_COOKIE_FILE", "")
+	if cookieFile == "" && cfg.RPC.Pass == "" {
+		for _, candidate := range []string{
+			filepath.Join(os.Getenv("HOME"), ".bitmark", ".cookie"),
+			"/home/coins/.bitmark/.cookie",
+		} {
+			if _, err := os.Stat(candidate); err == nil {
+				cookieFile = candidate
+				break
+			}
+		}
+	}
+	cfg.RPC.CookieFile = cookieFile
+
 	if cfg.PostgresDSN == "" {
 		return Config{}, errors.New("PG_DSN is required")
 	}
-	if cfg.RPC.User == "" || cfg.RPC.Pass == "" {
-		return Config{}, errors.New("RPC_USER and RPC_PASS are required")
+	hasCreds := cfg.RPC.User != "" && cfg.RPC.Pass != ""
+	hasCookie := cfg.RPC.CookieFile != ""
+	if !hasCreds && !hasCookie {
+		return Config{}, errors.New("RPC authentication required: set RPC_USER+RPC_PASS, or RPC_COOKIE_FILE (auto-discovered from $HOME/.bitmark/.cookie)")
 	}
 	if cfg.RPC.URL == "" {
 		return Config{}, errors.New("RPC_URL is required")

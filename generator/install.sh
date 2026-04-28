@@ -10,6 +10,13 @@
 
 set -euo pipefail
 
+# Go is installed to /usr/local/go/bin by the README instructions.  That path
+# is added to $PATH by /etc/profile.d/go.sh, which is only sourced for
+# interactive login shells — not when this script is invoked non-interactively
+# (e.g. from setup.sh or sudo).  Prepend it unconditionally so every subsequent
+# `go` call in this script works regardless of how the script was launched.
+export PATH="/usr/local/go/bin:${PATH}"
+
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BINARY_NAME="bitmark-hp-gen"
 BINARY_PATH="/usr/local/bin/${BINARY_NAME}"
@@ -97,7 +104,7 @@ install_deps() {
 # ── 2. Go toolchain ───────────────────────────────────────────────────────────
 check_go() {
     if ! command -v go &>/dev/null; then
-        die "Go is not installed. Install Go 1.21+ from https://go.dev/dl/ then re-run."
+        die "Go not found. Install Go 1.25.0 to /usr/local/go (see README Step 1) then re-run."
     fi
 
     local go_ver major minor

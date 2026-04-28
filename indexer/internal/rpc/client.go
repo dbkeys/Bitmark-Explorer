@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -18,7 +19,8 @@ import (
 
 type Client struct {
 	url           string
-	authHeader    string
+	staticAuth    string // pre-built Basic header for user:pass auth; empty when using cookie
+	cookieFile    string // path to .cookie file; empty when using static auth
 	http          *http.Client
 	maxResponseSz int64
 }
@@ -39,13 +41,31 @@ func NewClient(cfg config.RPCConfig) *Client {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	basic := base64.StdEncoding.EncodeToString([]byte(cfg.User + ":" + cfg.Pass))
+	var staticAuth string
+	if cfg.User != "" && cfg.Pass != "" {
+		staticAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.User+":"+cfg.Pass))
+	}
 	return &Client{
 		url:           cfg.URL,
-		authHeader:    "Basic " + basic,
+		staticAuth:    staticAuth,
+		cookieFile:    cfg.CookieFile,
 		http:          &http.Client{Transport: transport, Timeout: cfg.Timeout},
 		maxResponseSz: cfg.MaxResponseSize,
 	}
+}
+
+// authHeader builds the Authorization header value.  For cookie auth the file
+// is re-read on every call so a node restart (which regenerates the cookie)
+// is handled transparently without restarting the indexer.
+func (c *Client) authHeader() (string, error) {
+	if c.cookieFile == "" {
+		return c.staticAuth, nil
+	}
+	data, err := os.ReadFile(c.cookieFile)
+	if err != nil {
+		return "", fmt.Errorf("cookie file %s: %w", c.cookieFile, err)
+	}
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(strings.TrimSpace(string(data)))), nil
 }
 
 type rpcReq struct {
@@ -78,38 +98,59 @@ func (c *Client) call(ctx context.Context, method string, params []any, out any)
 		Params:  params,
 	})
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", c.authHeader)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, c.maxResponseSz))
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("rpc http %d: %s", resp.StatusCode, string(raw))
+	// Cookie auth: retry once on 401 — the node regenerates its cookie on
+	// restart, so a single stale-cookie failure is expected and recoverable.
+	maxAttempts := 1
+	if c.cookieFile != "" {
+		maxAttempts = 2
 	}
 
-	var rr rpcResp
-	if err := json.Unmarshal(raw, &rr); err != nil {
-		return fmt.Errorf("rpc decode: %w", err)
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		auth, err := c.authHeader()
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", c.url, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", auth)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			return err
+		}
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, c.maxResponseSz))
+		resp.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized && c.cookieFile != "" && attempt == 0 {
+			lastErr = fmt.Errorf("rpc http 401 (retrying with fresh cookie)")
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("rpc http %d: %s", resp.StatusCode, string(raw))
+		}
+
+		var rr rpcResp
+		if err := json.Unmarshal(raw, &rr); err != nil {
+			return fmt.Errorf("rpc decode: %w", err)
+		}
+		if rr.Error != nil {
+			return rr.Error
+		}
+		if out == nil {
+			return nil
+		}
+		return json.Unmarshal(rr.Result, out)
 	}
-	if rr.Error != nil {
-		return rr.Error
-	}
-	if out == nil {
-		return nil
-	}
-	return json.Unmarshal(rr.Result, out)
+
+	return lastErr
 }
 
 func (c *Client) GetBlockCount(ctx context.Context) (int, error) {
