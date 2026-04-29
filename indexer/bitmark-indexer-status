@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# bitmark-indexer-status — one-shot progress and health snapshot
+
+set -euo pipefail
+
+ENV_FILE="/etc/bitmark-indexer.env"
+
+# ------------------------------------------------------------
+# Load env (PG_DSN, RPC_URL, RPC_USER, RPC_PASS)
+# ------------------------------------------------------------
+if [ ! -r "$ENV_FILE" ]; then
+    echo "ERROR: cannot read $ENV_FILE" >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+set -a; source "$ENV_FILE"; set +a
+
+# ------------------------------------------------------------
+# Service state
+# ------------------------------------------------------------
+SVC_STATE=$(systemctl is-active bitmark-indexer 2>/dev/null || true)
+SVC_PID=$(systemctl show -p MainPID bitmark-indexer 2>/dev/null | cut -d= -f2)
+SVC_SINCE=$(systemctl show -p ActiveEnterTimestamp bitmark-indexer 2>/dev/null \
+            | cut -d= -f2 | sed 's/ UTC//')
+
+# ------------------------------------------------------------
+# DB tip (best_height, updated_at)
+# ------------------------------------------------------------
+read -r DB_HEIGHT DB_UPDATED < <(
+    psql "$PG_DSN" -tAF' ' \
+        -c "SELECT best_height, to_char(updated_at,'YYYY-MM-DD HH24:MI:SS') FROM chain_state WHERE id=1" \
+        2>/dev/null || echo "-1 unknown"
+)
+
+# ------------------------------------------------------------
+# Chain tip from RPC
+# ------------------------------------------------------------
+RPC_RESULT=$(curl -sf \
+    --user "${RPC_USER}:${RPC_PASS}" \
+    -d '{"method":"getblockcount","params":[],"id":1}' \
+    "$RPC_URL" 2>/dev/null || echo '{"result":0}')
+CHAIN_TIP=$(echo "$RPC_RESULT" | grep -o '"result":[0-9]*' | cut -d: -f2)
+
+# ------------------------------------------------------------
+# Derived metrics
+# ------------------------------------------------------------
+REMAINING=$(( CHAIN_TIP - DB_HEIGHT ))
+if [ "$CHAIN_TIP" -gt 0 ]; then
+    PCT=$(awk "BEGIN{printf \"%.2f\", $DB_HEIGHT * 100 / $CHAIN_TIP}")
+else
+    PCT="0.00"
+fi
+
+# Ingest rate: use a 20-minute window so we capture multiple batches
+# (each batch of 500 blocks takes ~3-4 minutes, so 60s almost always yields 0)
+RATE_WINDOW_MIN=20
+RATE_BATCHES=$(journalctl -u bitmark-indexer --since "${RATE_WINDOW_MIN} minutes ago" --no-pager -q 2>/dev/null \
+    | grep -c "committed batch" || true)
+
+# Express as blocks/hour for readability
+BLOCKS_IN_WINDOW=$(( RATE_BATCHES * 500 ))
+BLOCKS_PER_HOUR=$(awk "BEGIN{printf \"%d\", $BLOCKS_IN_WINDOW * 60 / $RATE_WINDOW_MIN}")
+if [ "$RATE_BATCHES" -gt 0 ]; then
+    RATE_MSG="${RATE_BATCHES} batches / last ${RATE_WINDOW_MIN} min  (~${BLOCKS_PER_HOUR} blocks/hr)"
+else
+    RATE_MSG="0 batches in last ${RATE_WINDOW_MIN} min  (stalled or just started)"
+fi
+
+# ETA
+if [ "$BLOCKS_PER_HOUR" -gt 0 ] && [ "$REMAINING" -gt 0 ]; then
+    ETA_MINS=$(awk "BEGIN{printf \"%d\", $REMAINING * 60 / $BLOCKS_PER_HOUR}")
+    ETA_HRS=$(( ETA_MINS / 60 ))
+    ETA_MINS_REM=$(( ETA_MINS % 60 ))
+    ETA_MSG="${ETA_HRS}h ${ETA_MINS_REM}m"
+elif [ "$REMAINING" -le 0 ]; then
+    ETA_MSG="at tip"
+else
+    ETA_MSG="n/a (no data yet — check back in ${RATE_WINDOW_MIN} min)"
+fi
+
+# ------------------------------------------------------------
+# Output
+# ------------------------------------------------------------
+echo "======================================================"
+echo " Bitmark Indexer Status"
+echo "======================================================"
+printf " Service        : %s" "$SVC_STATE"
+[ "$SVC_STATE" = "active" ] && printf "  (pid %s, since %s)" "$SVC_PID" "$SVC_SINCE"
+echo
+echo "------------------------------------------------------"
+printf " DB height      : %s\n" "$DB_HEIGHT"
+printf " Chain tip      : %s\n" "$CHAIN_TIP"
+printf " Remaining      : %s blocks\n" "$REMAINING"
+printf " Progress       : %s%%\n" "$PCT"
+printf " Last commit    : %s\n" "$DB_UPDATED"
+echo "------------------------------------------------------"
+printf " Rate (1 min)   : %s\n" "$RATE_MSG"
+printf " ETA to tip     : %s\n" "$ETA_MSG"
+echo "======================================================"
+echo
+echo "Live log:  journalctl -u bitmark-indexer -f"
+echo
