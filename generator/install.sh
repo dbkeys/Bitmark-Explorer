@@ -62,6 +62,7 @@ require_root() {
 
 # ── load central credentials ──────────────────────────────────────────────────
 CENTRAL_CREDS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/credentials.env"
+[[ -f "$CENTRAL_CREDS" ]] || CENTRAL_CREDS="/etc/Bitmark-Explorer/credentials.env"
 if [[ -f "$CENTRAL_CREDS" ]]; then
     while IFS='=' read -r key val || [[ -n "$key" ]]; do
         [[ "$key" =~ ^[[:space:]]*(#|$) ]] && continue

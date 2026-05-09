@@ -15,6 +15,7 @@ RPC_PORT="${RPC_PORT:-9266}"
 ENV_FILE="/etc/bitmark-indexer.env"
 BITMARK_CONF="/home/${INDEXER_USER}/.bitmark/bitmark.conf"
 CENTRAL_CREDS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/credentials.env"
+[[ -f "$CENTRAL_CREDS" ]] || CENTRAL_CREDS="/etc/Bitmark-Explorer/credentials.env"
 
 # ------------------------------------------------------------
 # 1. Load central credentials (env vars always override file)
@@ -30,7 +31,7 @@ if [[ -f "$CENTRAL_CREDS" ]]; then
         export "$key"="$val"
     done < "$CENTRAL_CREDS"
 else
-    echo "WARNING: $CENTRAL_CREDS not found — falling back to bitmark.conf and auto-generation."
+    echo "WARNING: credentials.env not found locally or in /etc/Bitmark-Explorer/ — falling back to bitmark.conf and auto-generation."
 fi
 
 # ------------------------------------------------------------

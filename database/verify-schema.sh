@@ -29,10 +29,12 @@ die()   { echo "[ERROR] $*" >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CENTRAL_CREDS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/credentials.env"
 LOCAL_CREDS="${SCRIPT_DIR}/credentials.env"
-# Explicit override > central location > local fallback
+ETC_CREDS="/etc/Bitmark-Explorer/credentials.env"
+# Explicit override > repo root > script dir > system-wide
 if [[ -z "${CREDS_FILE:-}" ]]; then
     if   [[ -f "$CENTRAL_CREDS" ]]; then CREDS_FILE="$CENTRAL_CREDS"
     elif [[ -f "$LOCAL_CREDS"   ]]; then CREDS_FILE="$LOCAL_CREDS"
+    elif [[ -f "$ETC_CREDS"     ]]; then CREDS_FILE="$ETC_CREDS"
     fi
 fi
 

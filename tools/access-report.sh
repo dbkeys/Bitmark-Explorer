@@ -16,15 +16,37 @@
 #   bash access-report.sh -q -o FILE   # quiet: FILE only (good for cron)
 #
 # Cron example — daily at 06:00:
-#   0 6 * * * /usr/local/src/Bitmark-Explorer/tools/access-report.sh -q \
-#       -o /var/log/btmk-access-report.txt
+#   0 6 * * * /usr/local/bin/access-report -q -o /var/log/btmk-access-report.txt
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -eu
 
+# ── load central credentials ──────────────────────────────────────────────────
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CREDS_FILE="${SCRIPT_DIR}/../credentials.env"
+[[ -f "$CREDS_FILE" ]] || CREDS_FILE="/etc/Bitmark-Explorer/credentials.env"
+if [[ -f "$CREDS_FILE" ]]; then
+    while IFS='=' read -r key val || [[ -n "$key" ]]; do
+        [[ "$key" =~ ^[[:space:]]*(#|$) ]] && continue
+        key="${key// /}"
+        [[ -z "$key" ]] && continue
+        [[ -v "$key" ]] && continue
+        export "$key"="$val"
+    done < "$CREDS_FILE"
+fi
+
 # ── configuration ─────────────────────────────────────────────────────────────
 
-ACCESS_LOG="${ACCESS_LOG:-/var/www/${EXPLORER_DOMAIN:-your-explorer-domain.example.com}/logs/access.log}"
+if [[ -z "${ACCESS_LOG:-}" ]]; then
+    if [[ -z "${EXPLORER_DOMAIN:-}" ]]; then
+        echo "ERROR: EXPLORER_DOMAIN is not set." >&2
+        echo "  Set it in credentials.env or export it before running:" >&2
+        echo "    EXPLORER_DOMAIN=your-domain.com $0" >&2
+        exit 1
+    fi
+    ACCESS_LOG="/var/www/${EXPLORER_DOMAIN}/logs/access.log"
+fi
 
 BOT_UA='[Bb]ot|[Cc]rawler|[Ss]pider|Googlebot|bingbot|Semrush|AhrefsBot|MJ12bot|DotBot|YandexBot|Bytespider|GPTBot|ClaudeBot|facebookexternalhit|LinkedInBot|Twitterbot|Slurp|curl|python|Go-http|Java/|Wget|libwww|zgrab|Nuclei|masscan|nmap|sqlmap|scanner|nikto|dirbuster|LetsEncrypt'
 BOT_REQ='testnet|getblock|xmlrpc|\.php|\.asp|\.env|wp-|\.git'
@@ -285,6 +307,11 @@ REPORT=$(printf '%s\n' \
 "" \
 "════════════════════════════════════════════════════════════════════")
 
+LOG_DIR="/etc/Bitmark-Explorer"
+LOG_FILE="${LOG_DIR}/BTMK-Explorer.access-log.$(date -u '+%Y-%m-%d')"
+mkdir -p "$LOG_DIR"
+echo "$REPORT" >> "$LOG_FILE"
+
 if [[ -n "$OUTPUT_FILE" ]]; then
     echo "$REPORT" > "$OUTPUT_FILE"
     [[ $QUIET -eq 0 ]] && echo "$REPORT"
@@ -292,3 +319,4 @@ if [[ -n "$OUTPUT_FILE" ]]; then
 else
     echo "$REPORT"
 fi
+echo "Report appended to: $LOG_FILE" >&2

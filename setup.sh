@@ -141,15 +141,17 @@ prompt_pass() {
 
 # ── load existing credentials ─────────────────────────────────────────────────
 load_creds() {
-    [[ -f "${CREDS_FILE}" ]] || return 0
-    info "Loading existing credentials from ${CREDS_FILE}"
+    local src="${CREDS_FILE}"
+    [[ -f "$src" ]] || src="/etc/Bitmark-Explorer/credentials.env"
+    [[ -f "$src" ]] || return 0
+    info "Loading existing credentials from ${src}"
     while IFS='=' read -r key val || [[ -n "$key" ]]; do
         [[ "$key" =~ ^[[:space:]]*(#|$) ]] && continue
         key="${key// /}"
         [[ -z "$key" ]] && continue
         [[ -v "$key" ]] && continue   # env var already set — don't override
         export "$key"="${val}"
-    done < "${CREDS_FILE}"
+    done < "${src}"
 }
 
 # ── collect configuration ─────────────────────────────────────────────────────
@@ -201,13 +203,13 @@ EOF
 
 # ── step 1: PostgreSQL schema ─────────────────────────────────────────────────
 setup_schema() {
-    step "1/4" "PostgreSQL schema"
+    step "1/5" "PostgreSQL schema"
     bash "${PSQL_DIR}/verify-schema.sh"
 }
 
 # ── step 2: blockchain indexer ────────────────────────────────────────────────
 setup_indexer() {
-    step "2/4" "Blockchain indexer  (building Go binaries — may take a minute)"
+    step "2/5" "Blockchain indexer  (building Go binaries — may take a minute)"
 
     local go_bin="/usr/local/go/bin/go"
 
@@ -231,13 +233,13 @@ setup_indexer() {
 
 # ── step 3: homepage generator ────────────────────────────────────────────────
 setup_generator() {
-    step "3/4" "Homepage generator  (builds Go binaries — may take a minute)"
+    step "3/5" "Homepage generator  (builds Go binaries — may take a minute)"
     bash "${HPGEN_DIR}/install.sh"
 }
 
 # ── step 4: Apache virtual host ───────────────────────────────────────────────
 setup_apache() {
-    step "4/4" "Apache virtual host"
+    step "4/5" "Apache virtual host"
 
     if ! command -v apache2ctl &>/dev/null; then
         warn "apache2 not found — skipping vhost setup."
@@ -293,6 +295,28 @@ VHOST
     echo "    certbot --apache -d ${domain}"
 }
 
+# ── step 5: install tools to /usr/local/bin ───────────────────────────────────
+setup_tools() {
+    step "5/5" "Command-line tools"
+    local tools_dir="${SELF_DIR}/tools"
+    local dest="/usr/local/bin"
+    local installed=()
+
+    for script in "${tools_dir}"/*.sh; do
+        [[ -f "$script" ]] || continue
+        local name
+        name="$(basename "${script}" .sh)"
+        install -m 755 "${script}" "${dest}/${name}"
+        installed+=("${name}")
+    done
+
+    if [[ ${#installed[@]} -gt 0 ]]; then
+        info "Installed to ${dest}: ${installed[*]}"
+    else
+        warn "No .sh files found in ${tools_dir}"
+    fi
+}
+
 # ── main ──────────────────────────────────────────────────────────────────────
 main() {
     require_root
@@ -312,6 +336,7 @@ main() {
     setup_indexer
     setup_generator
     setup_apache
+    setup_tools
 
     echo
     echo "=================================================="
@@ -320,6 +345,11 @@ main() {
     echo
     echo "  Domain:      ${EXPLORER_DOMAIN}"
     echo "  Credentials: ${CREDS_FILE}"
+    echo
+    echo "  Tools installed to /usr/local/bin:"
+    echo "    btmk-status        — service status dashboard"
+    echo "    access-report      — HTTP access log analyser"
+    echo "    explorer-redirect  — toggle domain redirect in Apache"
     echo
     echo "  Attach to the live homepage-generator TUI:"
     echo "    tmux attach -t bitmark-explorer"

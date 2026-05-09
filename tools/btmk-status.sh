@@ -14,6 +14,7 @@ fi
 # ── load central credentials ──────────────────────────────────────────────────
 
 CREDS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/credentials.env"
+[[ -f "$CREDS" ]] || CREDS="/etc/Bitmark-Explorer/credentials.env"
 if [[ -f "$CREDS" ]]; then
     while IFS='=' read -r key val || [[ -n "$key" ]]; do
         [[ "$key" =~ ^[[:space:]]*(#|$) ]] && continue

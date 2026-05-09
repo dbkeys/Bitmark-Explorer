@@ -20,6 +20,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CREDS_FILE="${SCRIPT_DIR}/../credentials.env"
+[[ -f "$CREDS_FILE" ]] || CREDS_FILE="/etc/Bitmark-Explorer/credentials.env"
 
 # Load credentials.env if present (env vars always take priority)
 if [[ -f "$CREDS_FILE" ]]; then
