@@ -270,9 +270,18 @@ func (i *Ingestor) insertBlockBundle(ctx context.Context, tx pgx.Tx, b *rpc.Bloc
 		}
 	}
 
-	// Logic to decode algorithm from the block version
+	// Decode algorithm and auxPoW flag from nVersion.
+	// Bit 8 (0x100) of nVersion = merge-mined via auxPoW; bits 9-11 = algo ID.
+	// We derive these locally from the raw version rather than trusting the
+	// daemon's "auxpow" / "algo" JSON fields, which are omitempty and may be
+	// absent when bitmarkd doesn't populate them.
 	aID := decodeAlgo(int64(b.Version))
 	aName := algoIDToName(aID)
+	isAuxPow := decodeAuxPow(int64(b.Version)) || b.AuxPow
+	auxPowSign := b.AuxPowSign
+	if isAuxPow && auxPowSign == "" {
+		auxPowSign = "merge-mined"
+	}
 
 	// Store weighted difficulty so it is comparable across algorithms
 	// (matches the PHP rpcace page: difficulty × algoWeight).
@@ -303,7 +312,7 @@ ON CONFLICT (hash) DO NOTHING
 		int64(b.Version), nullIfEmpty(b.Bits), int64(b.Nonce), b.Size, b.Weight,
 		nullIfNaN(weightedDiff), nullIfEmpty(b.ChainWork),
 		txCount, blockTotalOutBU, int64(0),
-		aID, aName, b.AuxPow, nullIfEmpty(b.AuxPowSign),
+		aID, aName, isAuxPow, nullIfEmpty(auxPowSign),
 		nullIfEmpty(b.CoreVersion),
 	)
 	if err != nil {
@@ -468,6 +477,12 @@ WHERE id=1`, height, hash)
 
 func decodeAlgo(version int64) int {
 	return int((version >> 9) & 7)
+}
+
+// decodeAuxPow returns true when bit 8 (0x100) of nVersion is set,
+// indicating the block was merge-mined via auxiliary proof-of-work.
+func decodeAuxPow(version int64) bool {
+	return version&0x100 != 0
 }
 
 // algoWeight returns the normalisation multiplier for a given algo ID.

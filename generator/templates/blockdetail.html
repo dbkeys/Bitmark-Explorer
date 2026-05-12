@@ -135,8 +135,8 @@
                         <td>{{ if .AlgoName }}{{ deref .AlgoName }}{{ else }}UNKNOWN{{ end }}{{ if .AlgoID }} (id={{ derefInt .AlgoID }}){{ end }}</td>
                     </tr>
                     <tr>
-                        <th class="detail-label">Auxpow</th>
-                        <td>{{ .Auxpow }}{{ if .AuxpowSign }} <span class="auxpowsign">({{ deref .AuxpowSign }})</span>{{ end }}</td>
+                        <th class="detail-label">Merge Mined</th>
+                        <td>{{ if .Auxpow }}<span class="auxpowsign">&#9733; Yes</span>{{ if .AuxpowSign }} &ndash; {{ deref .AuxpowSign }}{{ end }}{{ else }}No{{ end }}</td>
                     </tr>
                     <tr>
                         <th class="detail-label">Merkle Root</th>
