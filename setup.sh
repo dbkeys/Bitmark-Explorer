@@ -221,11 +221,8 @@ setup_indexer() {
     (cd "${INDEXER_DIR}" && CGO_ENABLED=1 "$go_bin" build -o backfill-addresses ./cmd/backfill-addresses) \
         || die "Failed to build backfill-addresses"
 
-    # mv (atomic rename) instead of cp — avoids ETXTBSY when the service is
-    # already running, because rename() replaces the directory entry without
-    # touching the inode the running process holds open.
-    mv "${INDEXER_DIR}/bitmark-indexer"    /usr/local/bin/bitmark-indexer
-    mv "${INDEXER_DIR}/backfill-addresses" /usr/local/bin/backfill-addresses
+    install -m 755 "${INDEXER_DIR}/bitmark-indexer"    /usr/local/bin/bitmark-indexer
+    install -m 755 "${INDEXER_DIR}/backfill-addresses" /usr/local/bin/backfill-addresses
     info "Installed /usr/local/bin/bitmark-indexer and /usr/local/bin/backfill-addresses"
 
     bash "${INDEXER_DIR}/setup-env.sh"

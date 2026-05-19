@@ -82,7 +82,7 @@ func main() {
 	}
 
 	broker := sse.NewBroker()
-	go startHTTPServer(listenAddr, staticDir, blockTplPath, addrTplPath, multitxTplPath, database, broker)
+	go startHTTPServer(listenAddr, staticDir, templatePath, blockTplPath, addrTplPath, multitxTplPath, database, broker)
 
 	blockCh  := make(chan struct{}, 1)
 	zmqErrCh := make(chan error, 1)
@@ -367,6 +367,7 @@ func generate(ctx context.Context, d *db.DB, ui *tui.TUI, templatePath, outputPa
 	now := time.Now().UTC()
 	syncInfo := buildSyncInfo(blocks, nodeHeight, nodeAvail, ingestRate)
 
+	totalPages := int((globalStats.NumBlocks + int64(db.HomePageSize) - 1) / int64(db.HomePageSize))
 	err = render.GenerateHomepage(
 		templatePath,
 		outputPath,
@@ -376,6 +377,10 @@ func generate(ctx context.Context, d *db.DB, ui *tui.TUI, templatePath, outputPa
 			GlobalStats: globalStats,
 			GeneratedAt: now,
 			Sync:        syncInfo,
+			Page:        1,
+			TotalPages:  totalPages,
+			PrevPage:    0,
+			NextPage:    2,
 		},
 	)
 	if err != nil {
@@ -392,20 +397,56 @@ func generate(ctx context.Context, d *db.DB, ui *tui.TUI, templatePath, outputPa
 	return -1
 }
 
-func startHTTPServer(addr, staticDir, blockTplPath, addrTplPath, multitxTplPath string, database *db.DB, broker *sse.Broker) {
+func startHTTPServer(addr, staticDir, homepageTplPath, blockTplPath, addrTplPath, multitxTplPath string, database *db.DB, broker *sse.Broker) {
 	fileServer := http.FileServer(http.Dir(staticDir))
 
 	mux := http.NewServeMux()
 	mux.Handle("/events", broker)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
+		ctx := r.Context()
+
+		// Paginated older-blocks view: /?page=N (N >= 2 served dynamically)
+		if pageStr := r.URL.Query().Get("page"); pageStr != "" && q == "" && r.URL.Query().Get("view") == "" {
+			var page int
+			fmt.Sscanf(pageStr, "%d", &page)
+			if page >= 2 {
+				blocks, total, err := database.PagedBlocks(ctx, page)
+				if err != nil {
+					http.Error(w, "database error", http.StatusInternalServerError)
+					return
+				}
+				algoStats, _ := database.AlgoStats(ctx)
+				globalStats, _ := database.GlobalStats(ctx)
+				totalPages := int((total + int64(db.HomePageSize) - 1) / int64(db.HomePageSize))
+				prevPage := page - 1
+				nextPage := 0
+				if page < totalPages {
+					nextPage = page + 1
+				}
+				data := render.HomepageData{
+					Blocks:      blocks,
+					AlgoStats:   algoStats,
+					GlobalStats: globalStats,
+					GeneratedAt: time.Now().UTC(),
+					Page:        page,
+					TotalPages:  totalPages,
+					PrevPage:    prevPage,
+					NextPage:    nextPage,
+				}
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				if err := render.RenderHomepage(homepageTplPath, w, data); err != nil {
+					log.Printf("render blocks page error: %v", err)
+				}
+				return
+			}
+		}
 
 		if r.URL.Query().Get("view") == "multitx" {
 			page := 1
 			if p := r.URL.Query().Get("page"); p != "" {
 				fmt.Sscanf(p, "%d", &page)
 			}
-			ctx := r.Context()
 			blocks, total, err := database.MultiTxBlocks(ctx, page)
 			if err != nil {
 				http.Error(w, "database error", http.StatusInternalServerError)
@@ -430,8 +471,6 @@ func startHTTPServer(addr, staticDir, blockTplPath, addrTplPath, multitxTplPath 
 			fileServer.ServeHTTP(w, r)
 			return
 		}
-
-		ctx := r.Context()
 
 		block, err := database.BlockByQuery(ctx, q)
 		if err != nil {

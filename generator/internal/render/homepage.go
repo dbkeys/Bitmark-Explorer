@@ -2,13 +2,13 @@ package render
 
 import (
 	"html/template"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/dbkeys/bitmark-hp-gen/internal/db"
-//	"github.com/dbkeys/mPoW-Explorer-MP-Gen/internal/db"
 )
 
 // SyncInfo is non-zero when the explorer is behind the chain tip.
@@ -28,10 +28,14 @@ type HomepageData struct {
 	AlgoStats   []db.AlgoStat
 	GlobalStats db.GlobalStats
 	Sync        SyncInfo
+	Page        int // 1 = homepage; 2+ = older-blocks pages
+	TotalPages  int
+	PrevPage    int // 0 = no previous page
+	NextPage    int // 0 = no next page
 }
 
-func GenerateHomepage(tplPath, outputPath string, data HomepageData) error {
-	funcMap := template.FuncMap{
+func buildHomepageFuncMap() template.FuncMap {
+	return template.FuncMap{
 		// poolURL returns the mining pool URL for a given algorithm name, or ""
 		"poolURL": func(algoName string) string {
 			switch algoName {
@@ -110,7 +114,23 @@ func GenerateHomepage(tplPath, outputPath string, data HomepageData) error {
 			return string(b) + decimals[1:] // append ".xx"
 		},
 	}
+}
 
+// RenderHomepage executes the homepage template to an arbitrary writer.
+// Used for dynamic paginated block-list requests.
+func RenderHomepage(tplPath string, w io.Writer, data HomepageData) error {
+	funcMap := buildHomepageFuncMap()
+	base := filepath.Base(tplPath)
+	tpl, err := template.New(base).Funcs(funcMap).ParseFiles(tplPath)
+	if err != nil {
+		return err
+	}
+	return tpl.Execute(w, data)
+}
+
+// GenerateHomepage renders the homepage template and atomically writes it to outputPath.
+func GenerateHomepage(tplPath, outputPath string, data HomepageData) error {
+	funcMap := buildHomepageFuncMap()
 	base := filepath.Base(tplPath)
 	tpl, err := template.New(base).Funcs(funcMap).ParseFiles(tplPath)
 	if err != nil {
@@ -118,7 +138,6 @@ func GenerateHomepage(tplPath, outputPath string, data HomepageData) error {
 	}
 
 	tmp := outputPath + ".tmp"
-
 	f, err := os.Create(tmp)
 	if err != nil {
 		return err

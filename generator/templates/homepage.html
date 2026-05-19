@@ -206,6 +206,17 @@
                     {{ end }}
                 </tbody>
             </table>
+            {{ if .Page }}
+            <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
+                <div>
+                    {{ if .PrevPage }}<a href="/?page={{ .PrevPage }}" class="btn btn-sm btn-outline-secondary">&larr; Newer</a>{{ end }}
+                </div>
+                <small class="text-muted">Page {{ .Page }}{{ if .TotalPages }} of {{ .TotalPages }}{{ end }}</small>
+                <div>
+                    {{ if .NextPage }}<a href="/?page={{ .NextPage }}" class="btn btn-sm btn-outline-secondary">Older &rarr;</a>{{ end }}
+                </div>
+            </div>
+            {{ end }}
             <p><span class="auxpowsign">*</span> Merge mined</p>
             <p>Difficulties and hashrates are weighted according to the algo's weight.</p>
             <p class="text-muted" style="font-size:0.8rem;">Generated {{ .GeneratedAt.Format "2006-Jan-02 15:04:05" }} UTC</p>
