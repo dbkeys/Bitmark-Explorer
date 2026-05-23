@@ -14,7 +14,7 @@ build:
 
 ## install: build, atomically swap the binary, then restart the service
 install: build
-	mv $(BINARY) /usr/local/bin/$(BINARY)
+	install -m 755 $(BINARY) /usr/local/bin/$(BINARY)
 	systemctl restart $(BINARY)
 	@sleep 2 && systemctl is-active $(BINARY)
 
