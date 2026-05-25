@@ -116,6 +116,7 @@ func (c *Client) call(ctx context.Context, method string, params []any, out any)
 		if err != nil {
 			return err
 		}
+		req.Close = true // tell bitmarkd to close the connection after responding
 		req.Header.Set("Authorization", auth)
 		req.Header.Set("Content-Type", "application/json")
 

@@ -26,6 +26,23 @@ func NewWithTimeout(url, user, pass string, timeout time.Duration) *Client {
 	return &Client{url: url, user: user, pass: pass, http: &http.Client{Timeout: timeout}}
 }
 
+// BlockExtra holds the proof-of-work and parent-block fields returned by getblock.
+// These fields are not stored in the DB and are fetched live from the node.
+type BlockExtra struct {
+	PowHash            string `json:"powhash"`
+	ParentBlockHash    string `json:"parentblockhash"`
+	ParentBlockPowHash string `json:"parentblockpowhash"`
+}
+
+// GetBlockExtra calls getblock(hash, 2) and returns only the PoW/parent fields.
+// Returns a zero-value BlockExtra (empty strings) on any error so callers can
+// still render the page without these fields if the node is unavailable.
+func (c *Client) GetBlockExtra(hash string) BlockExtra {
+	var result BlockExtra
+	_ = c.call("getblock", []any{hash, 2}, &result)
+	return result
+}
+
 // GetBlockCount returns the node's current best block height.
 func (c *Client) GetBlockCount() (int, error) {
 	var n int
@@ -52,6 +69,7 @@ func (c *Client) call(method string, params []any, out any) error {
 	}
 	req.SetBasicAuth(c.user, c.pass)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Connection", "close")
 
 	resp, err := c.http.Do(req)
 	if err != nil {
