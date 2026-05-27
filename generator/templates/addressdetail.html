@@ -110,7 +110,7 @@
                     <tr>
                         <td><a href="/?q={{ .Txid }}" style="font-family:monospace;font-size:0.8rem">{{ slice .Txid 0 16 }}&#8230;</a></td>
                         <td><a href="/?q={{ .BlockHeight }}">{{ fmtInt .BlockHeight }}</a></td>
-                        <td>{{ .TimeUTC.Format "2006-Jan-02 15:04:05" }}</td>
+                        <td>{{ .TimeUTC.UTC.Format "2006-Jan-02 15:04:05" }}</td>
                         <td class="text-end {{ if positive .NetSats }}amount-pos{{ else if negative .NetSats }}amount-neg{{ end }}">
                             {{ if positive .NetSats }}+{{ end }}{{ printf "%.8f" .NetBTM }}
                         </td>
