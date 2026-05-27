@@ -67,6 +67,11 @@ type BlockDetail struct {
 	Auxpow        bool
 	AuxpowSign    *string
 	Confirmations int64
+	// Proof-of-work fields fetched live from node RPC (empty when node unavailable)
+	PowHash             string
+	ParentBlockHash     string
+	ParentBlockPowHash  string
+	ParentBlockPrevHash string
 	Txs           []TxDetail
 }
 

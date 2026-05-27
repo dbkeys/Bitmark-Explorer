@@ -29,9 +29,10 @@ func NewWithTimeout(url, user, pass string, timeout time.Duration) *Client {
 // BlockExtra holds the proof-of-work and parent-block fields returned by getblock.
 // These fields are not stored in the DB and are fetched live from the node.
 type BlockExtra struct {
-	PowHash            string `json:"powhash"`
-	ParentBlockHash    string `json:"parentblockhash"`
-	ParentBlockPowHash string `json:"parentblockpowhash"`
+	PowHash              string `json:"powhash"`
+	ParentBlockHash      string `json:"parentblockhash"`
+	ParentBlockPowHash   string `json:"parentblockpowhash"`
+	ParentBlockPrevHash  string `json:"parentblockprevhash"`
 }
 
 // GetBlockExtra calls getblock(hash, 2) and returns only the PoW/parent fields.

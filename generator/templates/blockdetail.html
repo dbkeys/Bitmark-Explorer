@@ -115,6 +115,28 @@
                         <td class="hash-val">{{ .Hash }}</td>
                     </tr>
                     <tr>
+                        <th class="detail-label">PoW Hash</th>
+                        <td class="hash-val">{{ if .PowHash }}{{ .PowHash }}{{ else }}N/A{{ end }}</td>
+                    </tr>
+                    {{ if .ParentBlockHash }}
+                    <tr>
+                        <th class="detail-label">Parent Block Hash</th>
+                        <td class="hash-val"><a href="/?q={{ .ParentBlockHash }}">{{ .ParentBlockHash }}</a></td>
+                    </tr>
+                    {{ end }}
+                    {{ if .ParentBlockPowHash }}
+                    <tr>
+                        <th class="detail-label">Parent PoW Hash</th>
+                        <td class="hash-val">{{ .ParentBlockPowHash }}</td>
+                    </tr>
+                    {{ end }}
+                    {{ if .ParentBlockPrevHash }}
+                    <tr>
+                        <th class="detail-label">Parent Prev Hash</th>
+                        <td class="hash-val">{{ .ParentBlockPrevHash }}</td>
+                    </tr>
+                    {{ end }}
+                    <tr>
                         <th class="detail-label">Confirmations</th>
                         <td>{{ .Confirmations }}</td>
                     </tr>

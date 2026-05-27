@@ -82,7 +82,7 @@ func main() {
 	}
 
 	broker := sse.NewBroker()
-	go startHTTPServer(listenAddr, staticDir, templatePath, blockTplPath, addrTplPath, multitxTplPath, database, broker)
+	go startHTTPServer(listenAddr, staticDir, templatePath, blockTplPath, addrTplPath, multitxTplPath, database, rpc, broker)
 
 	blockCh  := make(chan struct{}, 1)
 	zmqErrCh := make(chan error, 1)
@@ -397,7 +397,7 @@ func generate(ctx context.Context, d *db.DB, ui *tui.TUI, templatePath, outputPa
 	return -1
 }
 
-func startHTTPServer(addr, staticDir, homepageTplPath, blockTplPath, addrTplPath, multitxTplPath string, database *db.DB, broker *sse.Broker) {
+func startHTTPServer(addr, staticDir, homepageTplPath, blockTplPath, addrTplPath, multitxTplPath string, database *db.DB, rpcClient *noderpc.Client, broker *sse.Broker) {
 	fileServer := http.FileServer(http.Dir(staticDir))
 
 	mux := http.NewServeMux()
@@ -478,6 +478,13 @@ func startHTTPServer(addr, staticDir, homepageTplPath, blockTplPath, addrTplPath
 			return
 		}
 		if block != nil {
+			if rpcClient != nil {
+				extra := rpcClient.GetBlockExtra(block.Hash)
+				block.PowHash = extra.PowHash
+				block.ParentBlockHash = extra.ParentBlockHash
+				block.ParentBlockPowHash = extra.ParentBlockPowHash
+				block.ParentBlockPrevHash = extra.ParentBlockPrevHash
+			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			if err := render.RenderBlockDetail(blockTplPath, w, block); err != nil {
 				log.Printf("render block detail error: %v", err)
