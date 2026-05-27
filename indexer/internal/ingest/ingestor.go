@@ -70,10 +70,9 @@ func min(a, b int) int {
 }
 
 type Ingestor struct {
-	cfg               config.Config
-	db                *pgxpool.Pool
-	rpc               *rpc.Client
-	lastHashrateCount [8]int64 // algo block count at the time of the last hashrate update
+	cfg config.Config
+	db  *pgxpool.Pool
+	rpc *rpc.Client
 }
 
 func New(cfg config.Config, db *pgxpool.Pool, rpcClient *rpc.Client) *Ingestor {
@@ -145,13 +144,8 @@ func (i *Ingestor) Run(ctx context.Context) error {
 			continue
 		}
 
-		// ── At tip: check 90-block hashrate boundary ─────────────────────
-		// Per CERM v1: current_hashrate and peak_hashrate are defined over
-		// 90-block (per-algo) daily windows.  We fire an update when any algo
-		// has accumulated 90 new blocks since the last refresh.
-		// lastHashrateCount starts at zero so the very first tip arrival always
-		// triggers one update to populate the table from a clean state.
-		i.checkAndUpdateHashrate(ctx)
+		// ── At tip: refresh per-algo stats from the node on every block ──
+		i.refreshAlgoStats(ctx)
 
 		// ── Real-time mode ────────────────────────────────────────────────
 		// Database is at the chain tip.  Block on the next ZMQ notification

@@ -7,28 +7,10 @@ import (
 	"math"
 )
 
-// checkAndUpdateHashrate queries current per-algo block counts.
-// If any algo has advanced 90 or more blocks since the last hashrate update,
-// it refreshes all algo stats from the node (one chaindynamics call covers all algos).
-// This matches CERM v1: current_hashrate is the 90-block daily average;
-// peak_hashrate is the highest such daily average over the trailing year.
-func (i *Ingestor) checkAndUpdateHashrate(ctx context.Context) {
-	counts, err := i.algoBlockCounts(ctx)
-	if err != nil {
-		log.Printf("WARNING: algo block counts: %v", err)
-		return
-	}
-	for algoID := 0; algoID < 8; algoID++ {
-		if counts[algoID] >= i.lastHashrateCount[algoID]+90 {
-			log.Printf("algo %s: %d-block boundary reached (count=%d) — updating hashrate stats",
-				algoIDToName(algoID), 90, counts[algoID])
-			if err := i.doUpdateAlgoStats(ctx); err != nil {
-				log.Printf("WARNING: algo stats update: %v", err)
-				return
-			}
-			i.lastHashrateCount = counts
-			return // one doUpdateAlgoStats refreshes all algos
-		}
+// refreshAlgoStats refreshes all per-algo stats from the node on every new block.
+func (i *Ingestor) refreshAlgoStats(ctx context.Context) {
+	if err := i.doUpdateAlgoStats(ctx); err != nil {
+		log.Printf("WARNING: algo stats update: %v", err)
 	}
 }
 
@@ -140,30 +122,4 @@ func nominalEpochReward(blockReward, hashrate, peakHashrate float64) float64 {
 		}
 	}
 	return best
-}
-
-// algoBlockCounts returns the total in-best-chain block count for each algo (index 0-7).
-func (i *Ingestor) algoBlockCounts(ctx context.Context) ([8]int64, error) {
-	var counts [8]int64
-	rows, err := i.db.Query(ctx, `
-		SELECT algo_id, COUNT(*) AS cnt
-		FROM blocks
-		WHERE in_best_chain = TRUE AND algo_id IS NOT NULL
-		GROUP BY algo_id
-	`)
-	if err != nil {
-		return counts, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var cnt int64
-		if err := rows.Scan(&id, &cnt); err != nil {
-			return counts, err
-		}
-		if id >= 0 && id < 8 {
-			counts[id] = cnt
-		}
-	}
-	return counts, nil
 }

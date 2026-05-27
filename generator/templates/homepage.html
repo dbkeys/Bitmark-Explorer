@@ -198,7 +198,7 @@
                         <td>{{ .Height }}</td>
                         <td><a href="?q={{ .Hash }}">{{ slice .Hash 0 16 }}&#8230;</a></td>
                         <td>{{ printf "%.2f" .Difficulty }}</td>
-                        <td>{{ .TimeUTC.Format "2006-Jan-02 15:04:05" }}</td>
+                        <td>{{ .TimeUTC.UTC.Format "2006-Jan-02 15:04:05" }}</td>
                         <td>{{ .TxCount }} &middot; {{ printf "%.2f" .TotalOutBTM }}</td>
                         <td>{{ if .AlgoName }}{{ .AlgoName }}{{ else }}UNKNOWN{{ end }}<span class="auxpowsign">{{ if .Auxpow }}*{{ end }}</span></td>
                         <td>{{ if .CoreVersion }}{{ .CoreVersion }}{{ else }}{{ .Version }}{{ end }}</td>
